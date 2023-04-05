@@ -79,7 +79,7 @@ async def meme(message: types.Message):
     
 @dp.callback_query_handler(text="update")
 @dp.throttled(anti_flood,rate=5)
-async def update(call: types.CallbackQuery):
+async def update(call: types.CallbackQuery): #Аня, я тебя люблю сильнее жизни!
     try:
         random_meme = random.randint(1, 3)
         if random_meme == 1:
