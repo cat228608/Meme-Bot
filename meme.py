@@ -13,7 +13,7 @@ import aiohttp
 import random
 import get_meme
 
-bot = Bot(token="6097934602:AAGyF3PeyOS_P3rWaJfNNU2Vj5Ts0GS98tY")
+bot = Bot(token="") #Тут токен
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 logging.basicConfig(level=logging.INFO)
