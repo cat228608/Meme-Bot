@@ -3,77 +3,68 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import InputMediaPhoto
+from aiogram.types import InputMediaPhoto, InlineQueryResultPhoto, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.exceptions import Throttled
 from aiogram.dispatcher import FSMContext
 from datetime import datetime
 import logging
 import asyncio
 import aiohttp
-#import requests
-#import requests_async as requests
 import random
+import get_meme
 
-bot = Bot(token="") #Тут токен
+bot = Bot(token="6097934602:AAGyF3PeyOS_P3rWaJfNNU2Vj5Ts0GS98tY")
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 logging.basicConfig(level=logging.INFO)
 
 async def anti_flood(*args, **kwargs):
     message = args[0]
-    await message.answer("Мем читай, а не спамь сука!", show_alert=True)
+    await message.answer("Мем читай, а не спамь!", show_alert=True)
+
+@dp.inline_handler()
+async def process_inline_query(query: types.InlineQuery):
+    result = await get_meme.meme()
+    results = [
+        types.InlineQueryResultPhoto(
+            id='meme',
+            photo_url=result,
+            thumb_url=result,
+            caption='🔮Лови мем',
+            reply_markup=types.InlineKeyboardMarkup()
+                .add(types.InlineKeyboardButton(text='🔄Обновить', callback_data='refresh'))
+        )
+    ]
+    await bot.answer_inline_query(query.id, results)
+
+@dp.callback_query_handler(text="refresh")
+@dp.throttled(anti_flood, rate=2)
+async def refresh(call: types.CallbackQuery):
+    try:
+        result = await get_meme.meme()
+        keyboard = types.InlineKeyboardMarkup()
+        buttons = [
+            types.InlineKeyboardButton(text="🔄Обновить", callback_data="refresh")
+        ]
+        keyboard.add(*buttons)
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        await bot.edit_message_media(inline_message_id=call.inline_message_id, media=InputMediaPhoto(result))
+        await bot.edit_message_caption(inline_message_id=call.inline_message_id, caption=f'⏱Мем был обновлен в: {current_time}', reply_markup=keyboard)
+    except Exception as e:
+        print(e)
 
 @dp.message_handler(commands="meme")
 @dp.throttled(anti_flood,rate=2)
 async def meme(message: types.Message):
     try:
-        random_meme = random.randint(1, 3)
-        if random_meme == 1:
-            random_site = random.randint(1, 2857)
-            url = f"https://www.memify.ru/memes/{random_site}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, "html.parser")
-                    items = soup.find_all("div", {"class": "infinite-item card"})
-                    random_item = random.choice(items)
-                    second_a = random_item.find_all("a")[1]
-                    keyboard = types.InlineKeyboardMarkup()
-                    buttons = [
-                        types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
-                    ]
-                    keyboard.add(*buttons)
-                    await bot.send_photo(message.chat.id, second_a.get("href"), caption = f'☄️Лови мем.', reply_markup=keyboard)
-        elif random_meme == 2:
-            url = 'https://mem-baza.ru'
-            random_site = random.randint(1, 117)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url + f"?page{random_site}") as response:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, "html.parser")
-                    items = soup.find_all('img', style='padding:0;border:0;')
-                    random_item = random.choice(items)
-                    keyboard = types.InlineKeyboardMarkup()
-                    buttons = [
-                        types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
-                    ]
-                    keyboard.add(*buttons)
-                    await bot.send_photo(message.chat.id, f"https://mem-baza.ru{random_item['src']}", caption = f'☄️Эй! Лови мемасик!)', reply_markup=keyboard)
-        elif random_meme == 3:
-            random_site = random.randint(1, 22)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://www.funomania.ru/mems/page/{random_site}/") as response:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, "html.parser")
-                    items = soup.find_all("article", {"class": "block story shortstory"})
-                    random_item = random.choice(items)
-                    link = random_item.find("img", {"class": "fr-dib"})["src"]
-                    keyboard = types.InlineKeyboardMarkup()
-                    buttons = [
-                        types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
-                    ]
-                    keyboard.add(*buttons)
-                    await bot.send_photo(message.chat.id, f"https://www.funomania.ru{link}", caption = f'☄️Эй! Лови мем с новой базы!)', reply_markup=keyboard)
+        result = await get_meme.meme()
+        keyboard = types.InlineKeyboardMarkup()
+        buttons = [
+            types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
+            ]
+        keyboard.add(*buttons)
+        await bot.send_photo(message.chat.id, result, caption = f'☄️Эй! Лови мем!', reply_markup=keyboard)
     except Exception as e:
         print(e)
     
@@ -81,62 +72,16 @@ async def meme(message: types.Message):
 @dp.throttled(anti_flood,rate=5)
 async def update(call: types.CallbackQuery): #Аня, я тебя люблю сильнее жизни!
     try:
-        random_meme = random.randint(1, 3)
-        if random_meme == 1:
-            random_site = random.randint(1, 2857)
-            url = f"https://www.memify.ru/memes/{random_site}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, "html.parser")
-                    items = soup.find_all("div", {"class": "infinite-item card"})
-                    random_item = random.choice(items)
-                    second_a = random_item.find_all("a")[1]
-                    keyboard = types.InlineKeyboardMarkup()
-                    buttons = [
-                        types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
-                    ]
-                    keyboard.add(*buttons)
-                    now = datetime.now()
-                    current_time = now.strftime("%H:%M:%S")
-                    await call.message.edit_media(InputMediaPhoto(second_a.get("href")))
-                    await call.message.edit_caption(caption = f'⏱Мем был обновлен в: {current_time}', reply_markup=keyboard)
-        elif random_meme == 2:
-            url = 'https://mem-baza.ru'
-            random_site = random.randint(1, 117)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url + f"?page{random_site}") as response:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, "html.parser")
-                    items = soup.find_all('img', style='padding:0;border:0;')
-                    random_item = random.choice(items)
-                    keyboard = types.InlineKeyboardMarkup()
-                    buttons = [
-                        types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
-                    ]
-                    keyboard.add(*buttons)
-                    now = datetime.now()
-                    current_time = now.strftime("%H:%M:%S")
-                    await call.message.edit_media(InputMediaPhoto(f"https://mem-baza.ru{random_item['src']}"))
-                    await call.message.edit_caption(caption = f'⏱Мем был обновлен в: {current_time}', reply_markup=keyboard)
-        elif random_meme == 3:
-            random_site = random.randint(1, 22)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://www.funomania.ru/mems/page/{random_site}/") as response:
-                    content = await response.text()
-                    soup = BeautifulSoup(content, "html.parser")
-                    items = soup.find_all("article", {"class": "block story shortstory"})
-                    random_item = random.choice(items)
-                    link = random_item.find("img", {"class": "fr-dib"})["src"]
-                    keyboard = types.InlineKeyboardMarkup()
-                    buttons = [
-                        types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
-                    ]
-                    keyboard.add(*buttons)
-                    now = datetime.now()
-                    current_time = now.strftime("%H:%M:%S")
-                    await call.message.edit_media(InputMediaPhoto(f"https://www.funomania.ru{link}"))
-                    await call.message.edit_caption(caption = f'⏱Мем был обновлен в: {current_time}', reply_markup=keyboard)
+        result = await get_meme.meme()
+        keyboard = types.InlineKeyboardMarkup()
+        buttons = [
+            types.InlineKeyboardButton(text="🔄Обновить", callback_data="update")
+        ]
+        keyboard.add(*buttons)
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        await call.message.edit_media(InputMediaPhoto(result))
+        await call.message.edit_caption(caption = f'⏱Мем был обновлен в: {current_time}', reply_markup=keyboard)
     except Exception as e:
         print(e)
     
